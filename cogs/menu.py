@@ -8,6 +8,16 @@ from db.queries.military import get_armies
 from db.queries.politics import get_research
 from cogs.politics import RESEARCH_COSTS
 
+NOT_REGISTERED_EMBED = embeds.error(
+    "Not Registered",
+    "You are not registered. Please use the registration channel to join the game first."
+)
+
+
+async def check_registered(interaction: discord.Interaction) -> bool:
+    p = await get_player(interaction.client, interaction.guild_id, interaction.user.id)
+    return p is not None
+
 
 async def post_public(bot, guild_id: int, content: str, embed: discord.Embed):
     channel_id = bot.config.get_channel(guild_id, "commands")
@@ -40,39 +50,59 @@ class MainMenuView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         p = await get_player(interaction.client, interaction.guild_id, interaction.user.id)
         if not p:
-            await interaction.followup.send(embed=embeds.error("Not Registered", "You are not a registered player."), ephemeral=True)
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
             return
         await interaction.followup.send(embed=embeds.player_status(p), ephemeral=True)
 
     @discord.ui.button(label="Territory", style=discord.ButtonStyle.secondary, custom_id="main:territory", row=1)
     async def territory(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        if not await check_registered(interaction):
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
+            return
         e = embeds.info("Territory")
         e.description = "Claim, develop, and construct buildings on your regions."
-        await interaction.response.edit_message(embed=e, view=TerritoryView())
+        await interaction.followup.send(embed=e, view=TerritoryView(), ephemeral=True)
 
     @discord.ui.button(label="Military", style=discord.ButtonStyle.secondary, custom_id="main:military", row=1)
     async def military(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        if not await check_registered(interaction):
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
+            return
         e = embeds.info("Military")
         e.description = "Raise levies, move armies, and manage frontlines."
-        await interaction.response.edit_message(embed=e, view=MilitaryView())
+        await interaction.followup.send(embed=e, view=MilitaryView(), ephemeral=True)
 
     @discord.ui.button(label="Economy", style=discord.ButtonStyle.secondary, custom_id="main:economy", row=1)
     async def economy(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        if not await check_registered(interaction):
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
+            return
         e = embeds.info("Economy")
         e.description = "Collect taxes, post market orders, and trade with other players."
-        await interaction.response.edit_message(embed=e, view=EconomyView())
+        await interaction.followup.send(embed=e, view=EconomyView(), ephemeral=True)
 
     @discord.ui.button(label="Politics", style=discord.ButtonStyle.secondary, custom_id="main:politics", row=2)
     async def politics(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        if not await check_registered(interaction):
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
+            return
         e = embeds.politics("Politics")
         e.description = "Unlock research and develop cultural traditions."
-        await interaction.response.edit_message(embed=e, view=PoliticsView())
+        await interaction.followup.send(embed=e, view=PoliticsView(), ephemeral=True)
 
     @discord.ui.button(label="Diplomacy", style=discord.ButtonStyle.secondary, custom_id="main:diplomacy", row=2)
     async def diplomacy(self, interaction, button):
+        await interaction.response.defer(ephemeral=True)
+        if not await check_registered(interaction):
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
+            return
         e = embeds.info("Diplomacy")
         e.description = "Offer treaties, declare war, and view your active agreements."
-        await interaction.response.edit_message(embed=e, view=DiplomacyView())
+        await interaction.followup.send(embed=e, view=DiplomacyView(), ephemeral=True)
 
     @discord.ui.button(label="Info", style=discord.ButtonStyle.secondary, custom_id="main:info", row=2)
     async def info(self, interaction, button):
@@ -217,7 +247,7 @@ class EconomyView(discord.ui.View):
         await interaction.response.defer(ephemeral=True)
         p = await get_player(interaction.client, interaction.guild_id, interaction.user.id)
         if not p:
-            await interaction.followup.send(embed=embeds.error("Not Registered", "You are not a registered player."), ephemeral=True)
+            await interaction.followup.send(embed=NOT_REGISTERED_EMBED, ephemeral=True)
             return
         await interaction.followup.send(embed=embeds.player_status(p), ephemeral=True)
 
