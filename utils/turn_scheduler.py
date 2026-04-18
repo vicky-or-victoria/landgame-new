@@ -5,8 +5,11 @@ from config import PASSIVE_DECAY_AMOUNT, CAPTURE_DECAY_RATE
 
 async def get_all_servers(bot) -> list:
     pool = await get_pool()
-    rows = await pool.fetch("SELECT guild_id, turn_interval_hours, paused FROM servers")
-    return [dict(r) for r in rows]
+    try:
+        rows = await pool.fetch("SELECT guild_id, turn_interval_hours, paused FROM servers")
+        return [dict(r) for r in rows]
+    except Exception:
+        return []
 
 async def increment_turn(server_id: int) -> int:
     pool = await get_pool()
@@ -16,14 +19,17 @@ async def increment_turn(server_id: int) -> int:
     return turn
 
 async def run_decay(bot, server_id: int):
-    regions = await get_all_regions(bot, server_id)
-    for region in regions:
-        if not region["owner_id"]:
-            continue
-        if region.get("stabilized") is False:
-            await apply_decay(bot, server_id, region["id"], CAPTURE_DECAY_RATE)
-        else:
-            await apply_decay(bot, server_id, region["id"], PASSIVE_DECAY_AMOUNT)
+    try:
+        regions = await get_all_regions(bot, server_id)
+        for region in regions:
+            if not region["owner_id"]:
+                continue
+            if region.get("stabilized") is False:
+                await apply_decay(bot, server_id, region["id"], CAPTURE_DECAY_RATE)
+            else:
+                await apply_decay(bot, server_id, region["id"], PASSIVE_DECAY_AMOUNT)
+    except Exception:
+        pass
 
 async def post_turn_log(bot, server_id: int, turn: int):
     channel_id = bot.config.get_channel(server_id, "turn_log")
@@ -42,7 +48,6 @@ async def turn_loop(bot):
         for server in servers:
             if server.get("paused"):
                 continue
-            interval = server.get("turn_interval_hours", 24)
             server_id = server["guild_id"]
             turn = await increment_turn(server_id)
             await run_decay(bot, server_id)
