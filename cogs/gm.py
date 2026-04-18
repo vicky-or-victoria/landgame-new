@@ -6,10 +6,16 @@ from utils import embeds
 from db.queries.players import register_player
 from db.queries.regions import get_all_regions, apply_decay, get_region
 from db.connection import get_pool
-from config import TERRAIN_WEIGHTS
+from config import TERRAIN_WEIGHTS, DEFAULT_REGION_COUNT
 import math
 
 VALID_TERRAINS = [t for t, _ in TERRAIN_WEIGHTS]
+
+async def ensure_server(pool, guild_id: int):
+    await pool.execute(
+        "INSERT INTO servers (guild_id, region_count) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        guild_id, DEFAULT_REGION_COUNT
+    )
 
 async def post_world_event(bot, guild_id: int, embed: discord.Embed):
     channel_id = bot.config.get_channel(guild_id, "world_events")
@@ -59,6 +65,7 @@ class GM(commands.Cog):
     @is_gm()
     async def gm_pause(self, interaction: discord.Interaction, paused: bool):
         pool = await get_pool()
+        await ensure_server(pool, interaction.guild_id)
         await pool.execute(
             "UPDATE servers SET paused = $1 WHERE guild_id = $2",
             paused, interaction.guild_id
@@ -136,13 +143,14 @@ class GM(commands.Cog):
             )
             return
         pool = await get_pool()
+        await ensure_server(pool, interaction.guild_id)
         row = await pool.fetchrow(
             "INSERT INTO regions (server_id, name, terrain, seed_x, seed_y) VALUES ($1, $2, $3, $4, $5) RETURNING id",
             interaction.guild_id, name, terrain, x, y
         )
         new_id = row["id"]
         existing = await pool.fetch(
-            "SELECT id, seed_x, seed_y FROM regions WHERE server_id = $1 AND id != $2",
+            "SELECT id, seed_x, seed_y, adjacency FROM regions WHERE server_id = $1 AND id != $2",
             interaction.guild_id, new_id
         )
         adj = []
@@ -196,6 +204,7 @@ class GM(commands.Cog):
             )
             return
         pool = await get_pool()
+        await ensure_server(pool, interaction.guild_id)
         await pool.execute(
             "UPDATE servers SET region_count = $1 WHERE guild_id = $2",
             count, interaction.guild_id
