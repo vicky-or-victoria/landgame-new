@@ -14,10 +14,12 @@ DEFAULT_SERVER = {
         "leaderboard":    None,
         "public_log":     None,
         "gm_alerts":      None,
+        "registration":   None,
     },
-    "gm_role":        None,
-    "menu_message":   None,
-    "setup_complete": False,
+    "gm_role":              None,
+    "menu_message":         None,
+    "registration_message": None,
+    "setup_complete":       False,
 }
 
 class ConfigManager:
@@ -39,7 +41,12 @@ class ConfigManager:
         if key not in self.data:
             self.data[key] = json.loads(json.dumps(DEFAULT_SERVER))
             self._write(self.data)
-        return self.data[key]
+        s = self.data[key]
+        if "registration" not in s.get("channels", {}):
+            s["channels"]["registration"] = None
+        if "registration_message" not in s:
+            s["registration_message"] = None
+        return s
 
     def get_channel(self, guild_id: int, name: str):
         return self._server(guild_id)["channels"].get(name)
@@ -60,6 +67,13 @@ class ConfigManager:
 
     def set_menu_message(self, guild_id: int, message_id: int):
         self._server(guild_id)["menu_message"] = message_id
+        self._write(self.data)
+
+    def get_registration_message(self, guild_id: int):
+        return self._server(guild_id).get("registration_message")
+
+    def set_registration_message(self, guild_id: int, message_id: int):
+        self._server(guild_id)["registration_message"] = message_id
         self._write(self.data)
 
     def is_setup_complete(self, guild_id: int) -> bool:
