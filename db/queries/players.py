@@ -2,11 +2,21 @@ from db.connection import get_pool
 from config import START_GOLD, START_FOOD, START_MATERIALS, START_INFLUENCE, DEFAULT_REGION_COUNT
 import datetime
 
-async def ensure_server(pool, guild_id: int):
-    await pool.execute(
-        "INSERT INTO servers (guild_id, region_count) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-        guild_id, DEFAULT_REGION_COUNT
-    )
+async def register_player(bot, server_id: int, discord_id: int, name: str):
+    pool = await get_pool()
+    async with pool.acquire() as conn:
+        async with conn.transaction():
+            await conn.execute(
+                "INSERT INTO servers (guild_id, region_count) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+                server_id, DEFAULT_REGION_COUNT
+            )
+            grace_until = datetime.datetime.utcnow() + datetime.timedelta(days=3)
+            await conn.execute(
+                """INSERT INTO players (discord_id, server_id, name, gold, food, materials, influence, grace_until)
+                   VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                   ON CONFLICT DO NOTHING""",
+                discord_id, server_id, name, START_GOLD, START_FOOD, START_MATERIALS, START_INFLUENCE, grace_until
+            )
 
 async def get_player(bot, server_id: int, discord_id: int):
     pool = await get_pool()
@@ -23,17 +33,6 @@ async def get_player(bot, server_id: int, discord_id: int):
     d = dict(row)
     d["region_count"] = region_count
     return d
-
-async def register_player(bot, server_id: int, discord_id: int, name: str):
-    pool = await get_pool()
-    await ensure_server(pool, server_id)
-    grace_until = datetime.datetime.utcnow() + datetime.timedelta(days=3)
-    await pool.execute(
-        """INSERT INTO players (discord_id, server_id, name, gold, food, materials, influence, grace_until)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-           ON CONFLICT DO NOTHING""",
-        discord_id, server_id, name, START_GOLD, START_FOOD, START_MATERIALS, START_INFLUENCE, grace_until
-    )
 
 async def adjust_resources(bot, server_id: int, discord_id: int, gold=0, food=0, materials=0, influence=0):
     pool = await get_pool()
