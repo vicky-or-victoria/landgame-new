@@ -1,6 +1,12 @@
 from db.connection import get_pool
-from config import START_GOLD, START_FOOD, START_MATERIALS, START_INFLUENCE
+from config import START_GOLD, START_FOOD, START_MATERIALS, START_INFLUENCE, DEFAULT_REGION_COUNT
 import datetime
+
+async def ensure_server(pool, guild_id: int):
+    await pool.execute(
+        "INSERT INTO servers (guild_id, region_count) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+        guild_id, DEFAULT_REGION_COUNT
+    )
 
 async def get_player(bot, server_id: int, discord_id: int):
     pool = await get_pool()
@@ -20,6 +26,7 @@ async def get_player(bot, server_id: int, discord_id: int):
 
 async def register_player(bot, server_id: int, discord_id: int, name: str):
     pool = await get_pool()
+    await ensure_server(pool, server_id)
     grace_until = datetime.datetime.utcnow() + datetime.timedelta(days=3)
     await pool.execute(
         """INSERT INTO players (discord_id, server_id, name, gold, food, materials, influence, grace_until)
