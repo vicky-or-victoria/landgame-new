@@ -6,7 +6,8 @@ from utils import embeds
 
 CHANNEL_NAMES = [
     "world_map", "world_events", "turn_log", "menu",
-    "commands", "battle_reports", "leaderboard", "public_log", "gm_alerts"
+    "commands", "battle_reports", "leaderboard", "public_log", "gm_alerts",
+    "registration"
 ]
 
 class Setup(commands.Cog):
@@ -46,12 +47,11 @@ class Setup(commands.Cog):
     @app_commands.command(name="setup_status", description="Check setup progress")
     @is_owner()
     async def setup_status(self, interaction: discord.Interaction):
-        missing = self.bot.config.get_missing_channels(interaction.guild_id)
-        gm_role = self.bot.config.get_gm_role(interaction.guild_id)
         lines = []
         for name in CHANNEL_NAMES:
             val = self.bot.config.get_channel(interaction.guild_id, name)
             lines.append(f"{name}: {'set' if val else 'missing'}")
+        gm_role = self.bot.config.get_gm_role(interaction.guild_id)
         lines.append(f"gm_role: {'set' if gm_role else 'missing'}")
         lines.append(f"setup_complete: {self.bot.config.is_setup_complete(interaction.guild_id)}")
         await interaction.response.send_message(
