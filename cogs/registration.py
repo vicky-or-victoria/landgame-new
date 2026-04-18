@@ -3,19 +3,35 @@ from discord import app_commands
 from discord.ext import commands
 from utils.checks import is_owner
 from utils import embeds
-from db.queries.players import register_player, get_all_players
+from db.queries.players import register_player
 from db.connection import get_pool
 
 
 async def player_count(bot, guild_id: int) -> int:
     try:
         pool = await get_pool()
-        row = await pool.fetchrow(
-            "SELECT COUNT(*) AS c FROM players WHERE server_id = $1", guild_id
+        val = await pool.fetchval(
+            "SELECT COUNT(*) FROM players WHERE server_id = $1", guild_id
         )
-        return row["c"] if row else 0
+        return val or 0
     except Exception:
         return 0
+
+
+async def refresh_registration_embed(bot, guild_id: int):
+    channel_id = bot.config.get_channel(guild_id, "registration")
+    msg_id = bot.config.get_registration_message(guild_id)
+    if not channel_id or not msg_id:
+        return
+    channel = bot.get_channel(channel_id)
+    if not channel:
+        return
+    try:
+        msg = await channel.fetch_message(msg_id)
+        count = await player_count(bot, guild_id)
+        await msg.edit(embed=registration_embed(count))
+    except Exception:
+        pass
 
 
 def registration_embed(count: int) -> discord.Embed:
@@ -44,6 +60,7 @@ class NameModal(discord.ui.Modal, title="Choose your in-game name"):
         name = self.name_input.value.strip()
 
         pool = await get_pool()
+
         existing = await pool.fetchrow(
             "SELECT discord_id FROM players WHERE discord_id = $1 AND server_id = $2",
             discord_id, guild_id
@@ -67,18 +84,7 @@ class NameModal(discord.ui.Modal, title="Choose your in-game name"):
             return
 
         await register_player(bot, guild_id, discord_id, name)
-
-        count = await player_count(bot, guild_id)
-        channel_id = bot.config.get_channel(guild_id, "registration")
-        msg_id = bot.config.get_registration_message(guild_id)
-        if channel_id and msg_id:
-            channel = bot.get_channel(channel_id)
-            if channel:
-                try:
-                    msg = await channel.fetch_message(msg_id)
-                    await msg.edit(embed=registration_embed(count))
-                except Exception:
-                    pass
+        await refresh_registration_embed(bot, guild_id)
 
         await interaction.followup.send(
             embed=embeds.success(
@@ -109,7 +115,7 @@ class Registration(commands.Cog):
         channel_id = self.bot.config.get_channel(interaction.guild_id, "registration")
         if not channel_id:
             await interaction.response.send_message(
-                embed=embeds.error("Channel Not Set", "Set the registration channel first with /setup_channel."),
+                embed=embeds.error("Channel Not Set", "Set the registration channel first with /setup_channel registration #channel."),
                 ephemeral=True
             )
             return
