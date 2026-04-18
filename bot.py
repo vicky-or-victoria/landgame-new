@@ -1,6 +1,7 @@
 import discord
 from discord.ext import commands
 import os
+import asyncpg
 from dotenv import load_dotenv
 from utils.config_manager import ConfigManager
 from utils.turn_scheduler import turn_loop
@@ -17,6 +18,7 @@ bot.config = ConfigManager()
 COGS = [
     "cogs.setup",
     "cogs.gm",
+    "cogs.registration",
     "cogs.menu",
     "cogs.territory",
     "cogs.military",
@@ -26,8 +28,18 @@ COGS = [
     "cogs.info",
 ]
 
+async def apply_schema():
+    conn = await asyncpg.connect(dsn=os.getenv("DATABASE_URL"))
+    schema_path = os.path.join(os.path.dirname(__file__), "db", "schema.sql")
+    with open(schema_path) as f:
+        sql = f.read()
+    await conn.execute(sql)
+    await conn.close()
+    print("Schema applied.")
+
 @bot.event
 async def on_ready():
+    await apply_schema()
     for cog in COGS:
         await bot.load_extension(cog)
     await bot.tree.sync()
